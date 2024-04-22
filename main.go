@@ -123,7 +123,11 @@ func main() {
 
 	scanner := bufio.NewScanner(file)
 	scanner.Scan()
-	testCasesNumber, _ := strconv.Atoi(scanner.Text())
+	testCasesNumber, err := strconv.Atoi(scanner.Text())
+	if err != nil {
+		fmt.Println("Error parsing number of test cases:", err)
+		return
+	}
 
 	for i := 0; i < testCasesNumber; i++ {
 		board := parseBoard(scanner)
