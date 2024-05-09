@@ -8,6 +8,14 @@ import (
 	"strings"
 )
 
+// Direction to control checking mode
+type Direction int
+
+const (
+	Horizontal Direction = iota
+	Vertical
+)
+
 const (
 	boardSize    = 19
 	winCondition = 5
@@ -15,12 +23,12 @@ const (
 
 func parseBoard(scanner *bufio.Scanner) ([][]int, error) {
 	board := make([][]int, boardSize)
-	linesRead := 0
+	lineCounter := 0
 
-	for linesRead < boardSize {
-		board[linesRead] = make([]int, boardSize)
+	for lineCounter < boardSize {
+		board[lineCounter] = make([]int, boardSize)
 		if !scanner.Scan() {
-			return nil, fmt.Errorf("unexpected end of input; expected 19 lines for a board, received %d", linesRead)
+			return nil, fmt.Errorf("unexpected end of input; expected 19 lines for a board, received %d", lineCounter)
 		}
 
 		line := strings.TrimSpace(scanner.Text())
@@ -30,50 +38,54 @@ func parseBoard(scanner *bufio.Scanner) ([][]int, error) {
 
 		columns := strings.Fields(line)
 		if len(columns) != boardSize {
-			return nil, fmt.Errorf("incorrect number of columns in row %d; expected 19 but got %d", linesRead+1, len(columns))
+			return nil, fmt.Errorf("incorrect number of columns in row %d; expected 19 but got %d", lineCounter+1, len(columns))
 		}
 
 		for j, value := range columns {
 			parsedValue, err := strconv.Atoi(value)
 			if err != nil {
-				return nil, fmt.Errorf("invalid integer value at row %d, column %d: %v", linesRead+1, j+1, err)
+				return nil, fmt.Errorf("invalid integer value at row %d, column %d: %v", lineCounter+1, j+1, err)
 			}
-			board[linesRead][j] = parsedValue
+			board[lineCounter][j] = parsedValue
 		}
-		linesRead++
+		lineCounter++
 	}
 
 	return board, nil
 }
 
-func checkHorizontal(board [][]int) (int, int, int) {
-	for i := 0; i < boardSize; i++ {
+// checkLines combines the checkHorizontal and checkVertical functions
+func checkLines(board [][]int, direction Direction) (int, int, int) {
+	for primary := 0; primary < boardSize; primary++ {
 		count := 1
-		for j := 1; j < boardSize; j++ {
-			if board[i][j] == board[i][j-1] && board[i][j] != 0 {
-				count++
-			} else {
-				count = 1
+		for secondary := 1; secondary < boardSize; secondary++ {
+			var currentValue, previousValue int
+			switch direction {
+			case Horizontal:
+				currentValue = board[primary][secondary]
+				previousValue = board[primary][secondary-1]
+			case Vertical:
+				currentValue = board[secondary][primary]
+				previousValue = board[secondary-1][primary]
+			default:
+				panic("Direction exception")
 			}
-			if count == winCondition {
-				return board[i][j], i + 1, j - 4 + 1
-			}
-		}
-	}
-	return 0, 0, 0
-}
 
-func checkVertical(board [][]int) (int, int, int) {
-	for j := 0; j < boardSize; j++ {
-		count := 1
-		for i := 1; i < boardSize; i++ {
-			if board[i][j] == board[i-1][j] && board[i][j] != 0 {
+			if currentValue == previousValue && currentValue != 0 {
 				count++
 			} else {
 				count = 1
 			}
+
 			if count == winCondition {
-				return board[i][j], i - 4 + 1, j + 1
+				switch direction {
+				case Horizontal:
+					return currentValue, primary + 1, secondary - 4 + 1
+				case Vertical:
+					return currentValue, secondary - 4 + 1, primary + 1
+				default:
+					panic("Direction exception")
+				}
 			}
 		}
 	}
@@ -118,11 +130,11 @@ func checkDiagonal(board [][]int) (int, int, int) {
 }
 
 func findWinner(board [][]int) (int, int, int) {
-	winner, x, y := checkHorizontal(board)
+	winner, x, y := checkLines(board, Horizontal)
 	if winner != 0 {
 		return winner, x, y
 	}
-	winner, x, y = checkVertical(board)
+	winner, x, y = checkLines(board, Vertical)
 	if winner != 0 {
 		return winner, x, y
 	}
@@ -131,37 +143,6 @@ func findWinner(board [][]int) (int, int, int) {
 		return winner, x, y
 	}
 	return 0, 0, 0
-}
-
-func validateTestCases(scanner *bufio.Scanner, numCases int) error {
-	expectedRows := boardSize * numCases
-	actualRows := 0
-	lineCount := 0
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		trimmedLine := strings.TrimSpace(line)
-		lineCount++
-
-		if trimmedLine == "" || len(strings.Fields(trimmedLine)) == 0 { // Skip empty or space-only lines
-			fmt.Printf("Skipping empty or invalid line at physical line %d\n", lineCount)
-			continue
-		}
-
-		columns := strings.Fields(trimmedLine)
-		if len(columns) != boardSize {
-			fmt.Printf("Skipping line with incorrect format at physical line %d: found %d columns\n", lineCount, len(columns))
-			continue
-		}
-
-		actualRows++
-		fmt.Printf("Processed valid line %d (physical line %d): %s\n", actualRows, lineCount, line)
-	}
-
-	if actualRows != expectedRows {
-		return fmt.Errorf("validation failed: expected %d rows, got %d rows", expectedRows, actualRows)
-	}
-	return nil
 }
 
 func main() {
